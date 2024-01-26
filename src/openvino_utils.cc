@@ -204,14 +204,14 @@ CompareDimsSupported(
   // TODO: OpenVINO backend does not support the dynamic shapes as of now.
   // We can use RESIZE_BILINEAR preProcess in InputInfo to support dynamic
   // shapes in future.
-  for (const auto& dim : dims) {
+/*  for (const auto& dim : dims) {
     RETURN_ERROR_IF_TRUE(
         (dim == -1), TRITONSERVER_ERROR_INVALID_ARG,
         std::string("model '") + model_name + "', tensor '" + tensor_name +
             "': provides -1 dim (shape " + ShapeToString(dims) +
-            "), openvino "
+            "), Triton openvino backend"
             "currently does not support dynamic shapes.");
-  }
+  }*/
 
   // If the model configuration expects batching support in the model,
   // then the openvino first dimension will be reshaped hence should not

@@ -552,6 +552,7 @@ ModelState::ValidateInputs(const size_t expected_input_cnt)
     }
 
     ov::Shape input_shape;
+    ov::PartialShape partial_input_shape;
     RETURN_IF_OPENVINO_ASSIGN_ERROR(
         input_shape,
         model_inputs[model_inputs_name_to_index[io_name]].get_shape(),
@@ -561,9 +562,18 @@ ModelState::ValidateInputs(const size_t expected_input_cnt)
       int index = (MaxBatchSize() != 0) ? 1 : 0;
       for (const auto dim : dims) {
         input_shape[index++] = dim;
+        if (dim > 0) {
+            partial_input_shape.emplace_back(ov::Dimension(dim));
+        } else if (dim == -1) {
+            partial_input_shape.push_back(ov::Dimension::dynamic());
+        } else {
+                // TODO return error
+                // TODO ranges
+        }
       }
       RETURN_IF_OPENVINO_ERROR(
-          ppp.input(io_name).tensor().set_shape(input_shape),
+ //         ppp.input(io_name).tensor().set_shape(input_shape),
+          ppp.input(io_name).tensor().set_shape(partial_input_shape),
           std::string("setting shape for " + io_name).c_str());
     } else {
       RETURN_IF_ERROR(CompareDimsSupported(
@@ -643,7 +653,7 @@ ModelState::ValidateOutputs()
     } else {
       RETURN_IF_ERROR(ParseShape(io, "dims", &dims));
     }
-    ov::Shape output_shape;
+    ov::Shape output_shape; // TODO @atobisze check
     RETURN_IF_OPENVINO_ASSIGN_ERROR(
         output_shape,
         model_outputs[model_outputs_name_to_index[io_name]].get_shape(),
@@ -676,7 +686,7 @@ ModelState::AutoCompleteConfig()
   std::vector<ov::Output<ov::Node>> model_inputs;
   std::vector<ov::Output<ov::Node>> model_outputs;
   RETURN_IF_OPENVINO_ASSIGN_ERROR(
-      model_inputs, ov_model_->inputs(), "getting input infos");
+      model_inputs, ov_model_->inputs(), "getting input infos"); // TODO @atobisze
   RETURN_IF_OPENVINO_ASSIGN_ERROR(
       model_outputs, ov_model_->outputs(), "getting output infos");
 
@@ -793,6 +803,7 @@ ModelState::AutoCompleteInputOrOutput(
   }
 
   // Autocomplete inputs/outputs if none is provided
+  // TODO @atobisze
   if (curr_num_ios == 0) {
     // New input/output json to be build
     triton::common::TritonJson::Value new_ios_json(
@@ -929,16 +940,16 @@ ModelInstanceState::ModelInstanceState(
     throw triton::backend::BackendModelInstanceException(TRITONSERVER_ErrorNew(
         TRITONSERVER_ERROR_INVALID_ARG,
         (std::string("unable to load model '") + model_state_->Name() +
-         "', openVINO backend supports only CPU device")
+         "', Triton openVINO backend supports only CPU device")
             .c_str()));
   }
 
   if (model_state_->ModelNotRead()) {
     std::string model_path;
-    THROW_IF_BACKEND_INSTANCE_ERROR(model_state_->ParseParameters());
+    THROW_IF_BACKEND_INSTANCE_ERROR(model_state_->ParseParameters()); // TODO @atobisze
     THROW_IF_BACKEND_INSTANCE_ERROR(
         model_state_->ReadModel(ArtifactFilename(), &model_path));
-    THROW_IF_BACKEND_INSTANCE_ERROR(model_state_->ValidateConfigureModel());
+    THROW_IF_BACKEND_INSTANCE_ERROR(model_state_->ValidateConfigureModel()); // TODO @atobisze
   }
 
   if (model_state_->ModelNotLoaded(device_)) {
@@ -1332,7 +1343,7 @@ ModelInstanceState::ReadOutputTensors(
 TRITONSERVER_Error*
 ModelInstanceState::ValidateOutputBatchSize(std::vector<int64_t>* output_shape)
 {
-  auto mbs = model_state_->MaxBatchSize();
+  auto mbs = model_state_->MaxBatchSize(); //TODO @atobisze
   if (mbs == 0) {
     return nullptr;
   } else if (
